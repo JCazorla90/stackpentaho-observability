@@ -1,0 +1,11 @@
+groups:
+  - name: pentaho-job-alerts
+    rules:
+      - alert: JobFailed
+        expr: estado_job == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Fallo en ejecución de job"
+          description: "Un job de Pentaho ha fallado en el último intento (estado_job=1)"
