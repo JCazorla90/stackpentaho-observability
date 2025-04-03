@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  pentaho:
+    build:
+      context: ./docker/pentaho
+      dockerfile: Dockerfile
+    container_name: ${PENTAHO_CONTAINER}
+    volumes:
+      - ./scripts:/scripts
+      - ./jobs:/jobs
+      - ./data:/data
+      - ./logs:/logs
+    working_dir: /jobs
+    stdin_open: true
+    tty: true
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: ${ELASTICSEARCH_CONTAINER}
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "${ELASTICSEARCH_PORT}:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.4
+    container_name: ${KIBANA_CONTAINER}
+    ports:
+      - "${KIBANA_PORT}:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.13.4
+    container_name: ${LOGSTASH_CONTAINER}
+    volumes:
+      - ./docker/elk/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+      - ./logs:/logs
+    ports:
+      - "${LOGSTASH_PORT}:5000"
+    depends_on:
+      - elasticsearch
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.13.4
+    container_name: ${FILEBEAT_CONTAINER}
+    user: root
+    volumes:
+      - ./docker/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml
+      - ./logs:/logs
+    depends_on:
+      - elasticsearch
+
+  exporter:
+    image: python:3.10-slim
+    container_name: ${EXPORTER_CONTAINER}
+    volumes:
+      - ./scripts:/scripts
+    working_dir: /scripts
+    command: >
+      bash -c "pip install prometheus_client && python exporter.py"
+    ports:
+      - "${EXPORTER_PORT}:9100"
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ${PROMETHEUS_CONTAINER}
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./docker/prometheus/alerts.yml:/etc/prometheus/alerts.yml
+    ports:
+      - "${PROMETHEUS_PORT}:9090"
+    depends_on:
+      - exporter
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ${GRAFANA_CONTAINER}
+    ports:
+      - "${GRAFANA_PORT}:3000"
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+
+volumes:
+  esdata:
