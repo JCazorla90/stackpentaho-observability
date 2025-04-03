@@ -1,6 +1,6 @@
 # Pentaho Observability Stack
 
-Repositorio preparado por jcazorla que integra Pentaho + Python con observabilidad total gracias a ELK y Prometheus/Grafana.
+stack que integra Pentaho + Python con observabilidad total gracias a ELK y Prometheus/Grafana.
 
 ## Incluye
 - Pentaho PDI en Docker
